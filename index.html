@@ -324,4 +324,225 @@
 
         <!-- Modals -->
         <div :class="['overlay-bg', { 'active': showHotelModal }]" @click="showHotelModal = false">
-            <div class="modal-content text-center" @click.
+            <div class="modal-content text-center" @click.stop>
+                <h3 class="text-lg font-bold mb-4" :style="{ color: currentTheme.textDark }">🏠 今晚返邊度?</h3>
+                <div v-if="currentNightHotel" class="glass-inner-box p-4 space-y-3">
+                    <h2 class="text-xl font-black bg-clip-text text-transparent drop-shadow-sm" :style="{ backgroundImage: 'linear-gradient(135deg, ' + currentTheme.textDark + ' 0%, ' + currentTheme.accentMain + ' 100%)' }">{{ currentNightHotel.name }}</h2>
+                    <button @click="openMap(currentNightHotel.name)" class="w-full text-white py-3 rounded-2xl font-bold shadow-md active:scale-95" :style="{ backgroundColor: currentTheme.accentMain }"><i class="fa-solid fa-location-arrow mr-2"></i> Google Map 導航</button>
+                </div>
+                <button @click="showHotelModal = false" class="w-full mt-4 text-gray-500 font-bold underline text-sm hover:text-gray-700">關閉</button>
+            </div>
+        </div>
+
+        <div :class="['overlay-bg', { 'active': showSettings }]" @click="showSettings = false">
+            <div class="modal-content text-center" @click.stop>
+                <h3 class="text-lg font-bold mb-4" :style="{ color: currentTheme.textDark }">⚙️ 系統設定</h3>
+                <div class="glass-inner-box p-5 mb-4">
+                    <p class="font-bold mb-3 text-sm" :style="{ color: currentTheme.textDark }">字體大小調整 ({{ settings.fontSize }}px)</p>
+                    <input type="range" v-model="settings.fontSize" min="12" max="22" class="w-full" :style="{ accentColor: currentTheme.accentMain }">
+                </div>
+                <button @click="showSettings = false" class="w-full mt-2 text-white py-3 rounded-2xl font-bold shadow-md active:scale-95" :style="{ backgroundColor: currentTheme.accentMain }">確認儲存</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    currentTrip: 'nagoya',
+                    activeTab: `itinerary`, // 預設打開行程頁面
+                    selectedDayIndex: 0, 
+                    showSettings: false, showHotelModal: false, alarmsOpen: true, newShopItem: '',
+                    weather: { city_name: `名古屋`, temp: `--`, icon: `fa-spinner fa-spin` },
+                    apiKey: `cc2dab2806da14aec6dab2ed8260a1c4`, 
+                    settings: { fontSize: 15 },
+                    exchangeRate: 0.052, 
+                    
+                    trips: {
+                        nagoya: {
+                            id: 'nagoya', date: '2027-05-16', range: 'May 16 - 23, 2027',
+                            flights: { 
+                                out: { code: '待定', date: '5/16', dep: 'HKG', arr: 'NGO' }, 
+                                in: { code: 'UO671', date: '5/23', dep: '20:45', arr: '23:55' } 
+                            },
+                            hotels: [
+                                { name: '名古屋 Base 酒店', dates: '5/16 及 5/19-5/22', addr: '名古屋市區', status: '✅ 已預約' },
+                                { name: '飛驒高山溫泉旅館', dates: '5/17 - 5/18', addr: '高山市區', status: '✅ 已預約' }
+                            ],
+                            hotelMap: { 0: 0, 1: 1, 2: 1, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 },
+                            expenseHotels: [
+                                { name: '名古屋 Base 酒店', dates: '5/16 (1晚)', hkdStr: '待定', hkd: 0 },
+                                { name: '飛驒高山溫泉旅館', dates: '5/17 - 5/18 (2晚)', hkdStr: '待定', hkd: 0 },
+                                { name: '名古屋 Base 酒店', dates: '5/19 - 5/22 (4晚)', hkdStr: '待定', hkd: 0 }
+                            ],
+                            
+                            alarms: [
+                                { date: '出發前', task: '🚗 預約 Toyota Alphard 租車 (備註需要放摺疊輪椅)' },
+                                { date: '出發前', task: '🎫 購買立山黑部 Web Ticket (換領纜車/巴士票)' },
+                                { date: '出發前', task: '⚠️ 預約「丸明」或「味蔵天國」飛驒牛午餐' },
+                                { date: '出發前', task: '🎂 聯絡高山溫泉旅館安排老豆生日蛋糕' },
+                                { date: '5月18日', task: '🏔️ 早啲出發去立山站，預留時間泊車換票！' }
+                            ],
+                            
+                            shopping: ['長島 Outlet 戰利品', '大型超市/藥妝 (名古屋市區)', '麵家 獅子丸 外帶手信盒', '高山老街土產'],
+                            
+                            diningList: [
+                                { date: '5/16', time: '晚上', name: '名駅/榮町 手羽先', addr: '名古屋市區', bookingNo: '現場 Walk-in' },
+                                { date: '5/17', time: '中午', name: '丸明 / 味蔵天國 (飛驒牛)', addr: '高山市', bookingNo: '⚠️ 建議預約' },
+                                { date: '5/18', time: '晚上', name: '溫泉旅館 飛驒牛會席料理', addr: '飛驒高山溫泉旅館', bookingNo: '✅ 已包含' },
+                                { date: '5/20', time: '中午', name: '頂級近江牛 壽喜燒', addr: '滋賀縣', bookingNo: '⚠️ 建議預約' },
+                                { date: '5/22', time: '午/晚', name: '麵家 獅子丸 (後生仔小隊)', addr: '名駅新幹線口', bookingNo: '現場排隊' },
+                                { date: '5/22', time: '午/晚', name: '高島屋/Gate Tower 無障礙餐廳', addr: '名古屋站', bookingNo: '現場 Walk-in' }
+                            ],
+                            
+                            days: [
+                                { weekday: 'Sun', dateStr: '5/16', events: [
+                                    { time: '傍晚', title: '飛抵中部國際機場 (NGO) ✈️', departTime: '17:00', travelTime: '1 hr', desc: '落機過關攞行李！準備展開長老全家自駕遊。', category: 'flight', transportType: 'walk', loc: '中部国際空港 セントレア' },
+                                    { time: '17:30', title: '辦理租車手續 🚗', departTime: '18:15', travelTime: '45 min', desc: '機場取車處辦手續，準備登上 Toyota Alphard。', category: 'transport', transportType: 'walk', action: '💡 強烈建議租用 Toyota Alphard，車廂闊落，車尾箱直插摺疊輪椅加行李都毫無壓力！' },
+                                    { time: '18:15', title: '開車前往名古屋市區 🚘', departTime: '19:00', travelTime: '45 min', desc: '距離約 45 公里，沿高速公路直達名古屋市區。', category: 'transport', transportType: 'walk' },
+                                    { time: '19:00', title: 'Check-in 名古屋 Base 酒店 🏨', departTime: '19:30', travelTime: '15 min', desc: '辦理入住及安頓行李。', category: 'hotel', loc: '名古屋', transportType: 'walk' },
+                                    { time: '19:45', title: '晚餐：名古屋必食「手羽先」 🍗', departTime: '21:30', travelTime: '10 min', desc: '前往名駅或榮町一帶，歎極品炸雞翼！', category: 'food', loc: '栄駅', transportType: 'walk' }
+                                ]},
+                                { weekday: 'Mon', dateStr: '5/17', events: [
+                                    { time: '08:30', title: '開車前往犬山城下町 🚘', departTime: '09:30', travelTime: '1 hr', desc: '距離約 30 公里。', category: 'transport', transportType: 'walk', loc: '犬山城下町' },
+                                    { time: '09:30', title: '犬山城下町散步 🍡', departTime: '11:30', travelTime: '2 hr', desc: '推輪椅輕鬆漫步古色古香嘅城下町。', category: 'sightseeing', transportType: 'walk' },
+                                    { time: '11:30', title: '開車前往飛驒高山 🚘', departTime: '13:30', travelTime: '2 hr', desc: '距離約 130 公里，沿途欣賞山區風景。', category: 'transport', transportType: 'walk' },
+                                    { time: '13:30', title: '午餐：頂級飛驒牛 🥩', departTime: '15:00', travelTime: '10 min', desc: '推介無障礙友善嘅人氣名店【丸明】或【味蔵天國】！', category: 'highlight', loc: '丸明 飛騨高山店', transportType: 'walk' },
+                                    { time: '15:00', title: '高山老街漫步 🚶‍♂️', departTime: '17:00', travelTime: '10 min', desc: '全程平路，推輪椅極輕鬆 ♿。', category: 'sightseeing', loc: '古い町並み (飛騨高山)', transportType: 'walk', info: '🔄 行程微調：宮川朝市中午會收檔，已為你移至 Day 12 早上！' },
+                                    { time: '17:00', title: 'Check-in 飛驒高山溫泉旅館 ♨️', departTime: '17:30', travelTime: '10 min', desc: '浸溫泉休息，準備聽日上雪山。', category: 'hotel', transportType: 'walk' }
+                                ]},
+                                { weekday: 'Tue', dateStr: '5/18', events: [
+                                    { time: '07:30', title: '開車直達立山站 🚘', departTime: '09:20', travelTime: '1.5-2 hr', desc: '提早出發！車程約 90 公里，早啲出發預留時間泊車換票。', category: 'transport', transportType: 'walk', loc: '立山駅' },
+                                    { time: '09:40', title: '搭纜車與高原巴士直達室堂 🎫', departTime: '11:00', travelTime: '1.5 hr', desc: '憑 Web Ticket 上山。', category: 'transport', transportType: 'train', action: '♿ 輪椅實測：纜車有站員協助；高原巴士需摺疊輪椅放入行李廂，長老需家人攙扶上兩三級樓梯。' },
+                                    { time: '11:00', title: '觀賞震撼雪牆 ❄️ 及午餐 🍱', departTime: '13:30', travelTime: '2.5 hr', desc: '柏油平路推輪椅極方便，欣賞 15-20 米高嘅雪牆！', category: 'highlight', loc: '雪の大谷', transportType: 'walk' },
+                                    { time: '13:30', title: '原路折返立山站 🚌', departTime: '15:00', travelTime: '1.5 hr', desc: '搭巴士及纜車落山取車。', category: 'transport', transportType: 'train' },
+                                    { time: '15:00', title: '開車返回高山 🚘', departTime: '16:20', travelTime: '1.5-2 hr', desc: '返回溫泉旅館休息。', category: 'transport', transportType: 'walk' },
+                                    { time: '18:30', title: '老豆生日會：飛驒牛會席料理 🎉🎂', departTime: '20:30', travelTime: '0 min', desc: '旅館享用大餐與生日蛋糕，為老豆慶祝生日！', category: 'food', transportType: 'walk' }
+                                ]},
+                                { weekday: 'Wed', dateStr: '5/19', events: [
+                                    { time: '08:30', title: '宮川朝市 🌅', departTime: '09:30', travelTime: '10 min', desc: '酒店食完早餐後，推輪椅輕鬆逛市集，感受當地早晨活力！', category: 'sightseeing', loc: '宮川朝市', transportType: 'walk' },
+                                    { time: '09:30', title: '開車前往白川鄉 🚘', departTime: '10:30', travelTime: '50 min', desc: '車程約 50 公里。', category: 'transport', transportType: 'walk', loc: '白川郷' },
+                                    { time: '10:30', title: '白川鄉合掌村漫步 🏠', departTime: '12:00', travelTime: '1.5 hr', desc: '村營停車場落車，推輪椅漫步平地 ♿。', category: 'sightseeing', transportType: 'walk' },
+                                    { time: '12:00', title: '城山展望台 俯瞰全景 📸', departTime: '12:30', travelTime: '10 min', desc: '直接開車直上展望台 🚗（免排隊等巴士，直接俯瞰全景）。', category: 'highlight', loc: '城山天守閣 展望台', transportType: 'walk' },
+                                    { time: '13:00', title: '開車返回名古屋 🚘', departTime: '15:00', travelTime: '2.5 hr', desc: '車程約 160 公里。', category: 'transport', transportType: 'walk' },
+                                    { time: '15:00', title: '返回名古屋 Base 酒店 🏨', departTime: '16:00', travelTime: '0 min', desc: '抵達大本營稍作休息。', category: 'hotel', transportType: 'walk' }
+                                ]},
+                                { weekday: 'Thu', dateStr: '5/20', events: [
+                                    { time: '08:30', title: '開車前往滋賀 近江八幡 🚘', departTime: '10:00', travelTime: '1.5 hr', desc: '車程約 100 公里。', category: 'transport', transportType: 'walk', loc: '近江八幡 水郷めぐり' },
+                                    { time: '10:00', title: '近江八幡水鄉 體驗手搖船 🚣‍♂️', departTime: '12:00', travelTime: '2 hr', desc: '推輪椅漫步古運河沿岸。', category: 'sightseeing', transportType: 'walk', action: '💡 注意：手搖船需跨步落船，請留意長老上落狀況。' },
+                                    { time: '12:00', title: '午餐：頂級近江牛壽喜燒 🍲', departTime: '14:00', travelTime: '10 min', desc: '品嚐日本三大和牛之一的近江牛！', category: 'food', transportType: 'walk' },
+                                    { time: '14:00', title: '駛往白鬚神社 ⛩️', departTime: '14:40', travelTime: '45 min', desc: '沿琵琶湖畔公路行駛。', category: 'transport', transportType: 'walk', loc: '白鬚神社' },
+                                    { time: '14:40', title: '白鬚神社 水上鳥居絕景 📸', departTime: '15:30', travelTime: '10 min', desc: '欣賞琵琶湖畔絕美鳥居。', category: 'highlight', transportType: 'walk', action: '🚨 安全警告：千萬不要推輪椅橫過馬路！請帶長老到新建嘅「藍湖白鬚台」（展望台）安全地與鳥居打卡合照！' },
+                                    { time: '16:00', title: '開車返回名古屋 🚘', departTime: '17:30', travelTime: '1.5-2 hr', desc: '車程約 130 公里，返回 Base 酒店。', category: 'transport', transportType: 'walk' }
+                                ]},
+                                { weekday: 'Fri', dateStr: '5/21', events: [
+                                    { time: '09:30', title: '開車前往名花之里 🚘', departTime: '10:00', travelTime: '30 min', desc: '車程約 30 公里。', category: 'transport', transportType: 'walk', loc: 'なばなの里' },
+                                    { time: '10:00', title: '名花之里 欣賞 5 月花海 🌹', departTime: '12:30', travelTime: '2.5 hr', desc: '全區無障礙平路 ♿，泊車可善用身障專用車位。', category: 'sightseeing', transportType: 'walk' },
+                                    { time: '12:30', title: '長島爵士之夢 Outlet 爆買 🛍️', departTime: '17:00', travelTime: '15 min', desc: '距離名花之里僅 10 多分鐘車程。戰利品直接丟入車尾箱 🧳，完全唔使拎住行！', category: 'shopping', loc: '三井アウトレットパーク ジャズドリーム長島', transportType: 'walk' },
+                                    { time: '17:00', title: '開車返回名古屋 🚘', departTime: '18:00', travelTime: '45 min', desc: '滿載而歸。', category: 'transport', transportType: 'walk' }
+                                ]},
+                                { weekday: 'Sat', dateStr: '5/22', events: [
+                                    { time: '10:00', title: '大型超市/藥妝店 最後採買 🛒', departTime: '12:30', travelTime: '15 min', desc: '直接載回酒店整理行李 🧳。', category: 'shopping', transportType: 'walk' },
+                                    { time: '13:00', title: '完美分工戰術 ⚔️ (後生仔 vs 長老)', departTime: '15:00', travelTime: '10 min', desc: '分成兩隊各自朝聖！', category: 'highlight', transportType: 'walk' },
+                                    { time: '13:00', title: '🏃‍♂️ 後生仔小隊：麵家 獅子丸 🍜', departTime: '15:00', travelTime: '0 min', desc: '殺去名駅新幹線口排隊朝聖神級拉麵！記得買埋外帶手信盒！', category: 'food', loc: '麺家 獅子丸', transportType: 'walk' },
+                                    { time: '13:00', title: '👴👵 長老小隊：無障礙友善餐廳 🍱', departTime: '15:00', travelTime: '0 min', desc: '安排長老喺 JR 高島屋或 Gate Tower 內（如梳化位充足嘅鰻魚飯/吉列豬扒店）舒舒服服歎美食。', category: 'food', loc: 'JRセントラルタワーズ', transportType: 'walk' },
+                                    { time: '16:00', title: '自由活動 / 整理行李 🧳', departTime: '19:00', travelTime: '0 min', desc: '返酒店執行李，準備聽日回程。', category: 'hotel', transportType: 'walk' }
+                                ]},
+                                { weekday: 'Sun', dateStr: '5/23', events: [
+                                    { time: '10:00', title: '悠閒 Check-out & 市區美食 🍱', departTime: '14:30', travelTime: '0 min', desc: '享用最後一頓美食及購買最後手信。', category: 'food', transportType: 'walk' },
+                                    { time: '15:30', title: '開車前往中部機場 (NGO) 🚘', departTime: '16:15', travelTime: '45 min', desc: '車程約 45 公里。', category: 'transport', transportType: 'walk', loc: '中部国際空港 セントレア' },
+                                    { time: '16:30', title: '辦理還車手續 🧳', departTime: '17:00', travelTime: '30 min', desc: '於機場交還 Alphard。', category: 'transport', transportType: 'walk' },
+                                    { time: '17:00', title: '機場 Flight Park 晚餐 🍔', departTime: '18:45', travelTime: '1.5 hr', desc: '空間寬敞嘅區域，推輪椅食晚餐極度舒適。', category: 'food', loc: 'FLIGHT OF DREAMS', transportType: 'walk' },
+                                    { time: '18:45', title: '辦理登機手續 (UO671) ✈️', departTime: '20:45', travelTime: '0 min', desc: '順利過關，準備返屋企。', category: 'flight', transportType: 'walk' },
+                                    { time: '20:45', title: '起飛返抵香港 🇭🇰', departTime: '23:55', travelTime: '4 hr', desc: '長老全家日本遊圓滿結束！', category: 'flight', transportType: 'flight' }
+                                ]}
+                            ]
+                        }
+                    },
+                    themes: {
+                        nagoya: {
+                            title: "🌸 2027 長老自駕遊", subtitle: "8日7夜 中部北陸 輪椅友善版", subIcon: "fa-solid fa-car",
+                            bgMain: "#F1F8E9", textDark: "#33691E", textLight: "#689F38", accentMain: "#558B2F", borderLight: "#C5E1A5",
+                            shadow: "0 8px 32px rgba(85, 139, 47, 0.2)", headerImg: "url('https://images.unsplash.com/photo-1524413840807-0c3cb6fa808d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80')",
+                            headerGradient: "linear-gradient(135deg, rgba(139, 195, 74, 0.4) 0%, rgba(51, 105, 30, 0.7) 100%)",
+                            effect: 'none', effectEmoji: '🌸'
+                        }
+                    }
+                }
+            },
+            computed: {
+                currentTheme() { return this.themes[this.currentTrip]; },
+                currentTripData() { return this.trips[this.currentTrip]; },
+                currentDays() { return this.currentTripData.days; },
+                currentItineraryData() { return this.currentTripData.days[this.selectedDayIndex].events || []; },
+                currentNightHotel() { return this.currentTripData.hotels[this.currentTripData.hotelMap[this.selectedDayIndex]]; },
+                
+                totalHotelHkd() {
+                    if (!this.currentTripData.expenseHotels) return 0;
+                    return this.currentTripData.expenseHotels.reduce((sum, h) => sum + (h.hkd || 0), 0);
+                }
+            },
+            watch: {
+                selectedDayIndex() { this.fetchWeather(); },
+                'settings.fontSize': function(newVal) { document.documentElement.style.fontSize = newVal + 'px'; }
+            },
+            mounted() { 
+                this.fetchWeather(); 
+                document.documentElement.style.fontSize = this.settings.fontSize + 'px';
+            },
+            methods: {
+                fetchWeather() {
+                    let query = 'Nagoya,JP'; let displayName = '名古屋';
+                    const idx = this.selectedDayIndex;
+                    
+                    if (idx === 1 || idx === 2) { query = 'Takayama,JP'; displayName = '高山'; }
+                    else if (idx === 3) { query = 'Shirakawa,JP'; displayName = '白川鄉'; }
+                    else if (idx === 4) { query = 'Omihachiman,JP'; displayName = '近江八幡'; }
+                    
+                    this.weather.city_name = displayName;
+                    fetch(`https://api.openweathermap.org/data/2.5/weather?q=${query}&units=metric&lang=zh_tw&appid=${this.apiKey}`)
+                    .then(res => res.json()).then(data => {
+                        this.weather.temp = Math.round(data.main.temp);
+                        const code = data.weather[0].icon;
+                        if (code.includes('01')) this.weather.icon = 'fa-sun';
+                        else if (code.includes('02') || code.includes('03')) this.weather.icon = 'fa-cloud-sun';
+                        else if (code.includes('04')) this.weather.icon = 'fa-cloud';
+                        else if (code.includes('09') || code.includes('10')) this.weather.icon = 'fa-cloud-rain';
+                        else if (code.includes('13')) this.weather.icon = 'fa-snowflake';
+                        else if (code.includes('11')) this.weather.icon = 'fa-bolt';
+                        else this.weather.icon = 'fa-smog';
+                    }).catch(() => { this.weather.temp = '--'; });
+                },
+                getCountdown(dateStr) {
+                    const diff = new Date(dateStr) - new Date();
+                    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+                },
+                itemCategoryName(cat) {
+                    const map = { sightseeing: '景點', food: '美食', shopping: '購物', transport: '交通', hotel: '住宿', flight: '航班', highlight: '重點推介' };
+                    return map[cat] || '行程';
+                },
+                getTransportIcon(type) {
+                    const map = { walk: 'fa-person-walking', train: 'fa-train-subway', flight: 'fa-plane' };
+                    return `fa-solid ${map[type] || 'fa-arrow-right'}`;
+                },
+                tabClass(tab) {
+                    return this.activeTab === tab 
+                        ? `bg-[${this.currentTheme.accentMain}] text-white w-10 h-10 rounded-full shadow-lg flex items-center justify-center scale-110 transition-all` 
+                        : `bg-white/90 text-[${this.currentTheme.accentMain}] w-8 h-8 rounded-full shadow flex items-center justify-center transition-all hover:bg-white`;
+                },
+                openMap(loc) { 
+                    if(loc) { window.open(`https://www.google.com/maps/search/?api=1&query=` + encodeURIComponent(loc), '_blank'); } 
+                },
+                formatText(text) { return text ? String(text).replace(/\n/g, '<br>') : ''; },
+                toggleAlarms() { this.alarmsOpen = !this.alarmsOpen; },
+                addShoppingItem() { if(this.newShopItem) this.currentTripData.shopping.push(this.newShopItem); this.newShopItem = ''; },
+                removeShoppingItem(idx) { this.currentTripData.shopping.splice(idx, 1); }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
